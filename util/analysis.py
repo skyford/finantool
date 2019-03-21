@@ -1,6 +1,7 @@
 # profit analysis
 import pandas as pd
 import util.loader as loader
+import util.date_util as date_util
 from datetime import datetime
 import copy
 import csv
@@ -17,7 +18,7 @@ def get_buy(df):
 def get_sell(df):
     return df[df['Amount'] < 0]
 
-def gen_report(product, tx_file):
+def gen_report(product, tx_file, last_day = '2100-01-01 00:00:00'):
     txData = pd.read_csv(tx_file)
     txBuy = get_buy(txData)
     txSell = get_sell(txData)
@@ -25,6 +26,8 @@ def gen_report(product, tx_file):
     txBuy['adj_price'] = txBuy['Price']
     buy_list =  list(txBuy.itertuples(index=False))
     sell_list =  list(txSell.itertuples(index=False))
+    # only keep sell record before the last_day
+    sell_list = list(filter(lambda s : date_util.earlier_than(s.Datetime, last_day) , sell_list))
     result = tx_matcher(buy_list, sell_list)
     return result, buy_list
 
@@ -84,9 +87,10 @@ def tx_matcher(buy_list, sell_list):
             sell_amount -=  consumed_amount
             sell = sell._replace(Amount = -sell_amount)
             buy_list.pop(0)
+            ## Actually, wash sale rule does not apply to coins , by 2019-3
             ## Note, now the current used buy is out of the list
-            if match_res['profit'] < 0:
-                update_wash(match_res, buy_list)
+            #if match_res['profit'] < 0:
+            #    update_wash(match_res, buy_list)
             if update_buy.Amount > 0.00000001:
                 buy_list.insert(0, update_buy);
             else:
@@ -98,8 +102,8 @@ def tx_matcher(buy_list, sell_list):
 ## try to find a wash_sale candidate if any, and update the result
 def update_wash(match, buy_list):
     for index in range(len(buy_list)):
-        sell_time = extract_time(match['sell_time'])
-        wash_buy_time = extract_time(buy_list[index].Datetime)
+        sell_time = date_util.extract_time(match['sell_time'])
+        wash_buy_time = date_util.extract_time(buy_list[index].Datetime)
         if (is_in_wash_range(sell_time, wash_buy_time)):
             print('find wash for sell at {}, buy at {}'.format(sell_time, wash_buy_time))
             print(index, buy_list[index])
@@ -114,14 +118,10 @@ def update_wash(match, buy_list):
             break
     return
 
-def diff_dates(date1, date2):
-    return abs(date2-date1).days
 
-def extract_time(datestr):
-    return datetime.strptime(datestr, "%Y-%m-%d %H:%M:%S")
 
 def is_in_wash_range(date1, date2):
-    if diff_dates(date1,date2) <= 30:
+    if date_util.diff_dates(date1,date2) <= 30:
         return True
     else:
         return False

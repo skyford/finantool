@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime
 import copy
 import csv
+import util.date_util as date_util
+
 
 workdir = './data/coinbase/2018/proc/'
 ## test the new column
@@ -14,6 +16,25 @@ txSell = ana.get_sell(txData)
 ## set adjust price (with washsale) as the orig price
 txBuy['adj_price'] = txBuy['Price']
 buy_list =  list(txBuy.itertuples(index=False))
+sell_list=  list(txSell.itertuples(index=False))
+# test filter out by date
+last_day = '2018-01-31 23:59:59'
+
+sell_list = list(filter(lambda s : date_util.earlier_than(s.Datetime, last_day) , sell_list))
+for index in range(len(sell_list)):
+    print('cur sell on {}. earlier than last day {}'.format(sell_list[index].Datetime, last_day))
+
+
+exit()
+
+
+
+for index in range(len(sell_list)):
+    if date_util.earlier_than(sell_list[index].Datetime, last_day):
+        print('cur sell on {}. earlier than last day {}'.format(sell_list[index].Datetime, last_day))
+
+
+exit()
 
 ana.save_list_csv(buy_list, './tmp/t.csv',  with_idx=False)
 exit()
