@@ -19,6 +19,11 @@ buy_list =  list(txBuy.itertuples(index=False))
 sell_list=  list(txSell.itertuples(index=False))
 # test filter out by date
 last_day = '2018-01-31 23:59:59'
+first_day = '2018-01-01 00:00:00'
+print(date_util.is_in_range( '2018-01-30 23:59:59', first_day, last_day))
+print(date_util.is_in_range( '2018-02-13 23:59:59', first_day, last_day))
+print(date_util.is_in_range( '2017-01-30 23:59:59', first_day, last_day))
+exit()
 
 sell_list = list(filter(lambda s : date_util.earlier_than(s.Datetime, last_day) , sell_list))
 for index in range(len(sell_list)):

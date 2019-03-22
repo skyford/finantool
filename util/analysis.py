@@ -18,7 +18,7 @@ def get_buy(df):
 def get_sell(df):
     return df[df['Amount'] < 0]
 
-def gen_report(product, tx_file, last_day = '2100-01-01 00:00:00'):
+def gen_report(product, tx_file,  last_day = '2100-01-01 00:00:00'):
     txData = pd.read_csv(tx_file)
     txBuy = get_buy(txData)
     txSell = get_sell(txData)
@@ -27,7 +27,7 @@ def gen_report(product, tx_file, last_day = '2100-01-01 00:00:00'):
     buy_list =  list(txBuy.itertuples(index=False))
     sell_list =  list(txSell.itertuples(index=False))
     # only keep sell record before the last_day
-    sell_list = list(filter(lambda s : date_util.earlier_than(s.Datetime, last_day) , sell_list))
+    sell_list = list(filter(lambda s : date_util.earlier_than(s.Datetime, last_day), sell_list))
     result = tx_matcher(buy_list, sell_list)
     return result, buy_list
 
@@ -41,7 +41,7 @@ def create_match(buy, sell):
         tuple_amount = buy.Amount
     result = {
     'product':sell.Product,
-    'sell_time':sell.Datetime,
+    'sell_time':date_util.extract_time(sell.Datetime),
     'sell_tx':sell.Tx,
     'amount':tuple_amount,
     'buy_price':buy.Price,
@@ -102,7 +102,8 @@ def tx_matcher(buy_list, sell_list):
 ## try to find a wash_sale candidate if any, and update the result
 def update_wash(match, buy_list):
     for index in range(len(buy_list)):
-        sell_time = date_util.extract_time(match['sell_time'])
+        #sell_time = date_util.extract_time(match['sell_time'])
+        sell_time = match['sell_time']
         wash_buy_time = date_util.extract_time(buy_list[index].Datetime)
         if (is_in_wash_range(sell_time, wash_buy_time)):
             print('find wash for sell at {}, buy at {}'.format(sell_time, wash_buy_time))
@@ -128,15 +129,21 @@ def is_in_wash_range(date1, date2):
 
 def gen_sum(match_res):
     product =  match_res.iloc[0]['product']
+    match_res['cost_base'] = match_res['buy_adj_price']*match_res['amount']
+    match_res['process'] = match_res['sell_price']*match_res['amount']
     total_profit = match_res['profit'].sum() + match_res['disallowed'].sum()
+    total_cost_base = match_res['cost_base'].sum()
+    total_process = match_res['process'].sum()
     total_match_pair = len(match_res)
     earliest = match_res.iloc[0]['buy_time']
     lastest = match_res.iloc[-1]['sell_time']
-    res = pd.DataFrame(columns=['product', 'from', 'to', 'profit', 'match_pairs'])
+    res = pd.DataFrame(columns=['product', 'from', 'to', 'cost', 'process', 'profit', 'match_pairs'])
     res = res.append({
     'product' : product,
     'from' : earliest,
     'to' : lastest,
+    'cost' : total_cost_base,
+    'process' : total_process,
     'profit' : total_profit,
     'match_pairs' : total_match_pair
     },ignore_index=True)
